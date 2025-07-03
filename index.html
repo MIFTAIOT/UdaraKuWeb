@@ -1,0 +1,2141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UdaraKu - Smart CO & NO2 Quality Monitoring</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+            --good-bg: #f0fdf4;
+            --good-text: #166534;
+            --moderate-bg: #fefce8;
+            --moderate-text: #854d0e;
+            --unhealthy-bg: #fff7ed;
+            --unhealthy-text: #9a3412;
+            --hazardous-bg: #fef2f2;
+            --hazardous-text: #991b1b;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            transition: background-color 0.5s ease, color 0.5s ease;
+            background-color: var(--good-bg);
+            color: var(--good-text);
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="20" cy="20" r="1.5" fill="%23d1fae5" opacity="0.6"/><circle cx="50" cy="30" r="1" fill="%23d1fae5" opacity="0.4"/><circle cx="80" cy="40" r="1.2" fill="%23d1fae5" opacity="0.5"/><circle cx="30" cy="70" r="0.8" fill="%23d1fae5" opacity="0.3"/><circle cx="70" cy="80" r="1.3" fill="%23d1fae5" opacity="0.7"/></svg>');
+            overflow: hidden;
+        }
+        
+        body.mood-good {
+            background-color: var(--good-bg);
+            color: var(--good-text);
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="20" cy="20" r="1.5" fill="%23d1fae5" opacity="0.6"/><circle cx="50" cy="30" r="1" fill="%23d1fae5" opacity="0.4"/><circle cx="80" cy="40" r="1.2" fill="%23d1fae5" opacity="0.5"/><circle cx="30" cy="70" r="0.8" fill="%23d1fae5" opacity="0.3"/><circle cx="70" cy="80" r="1.3" fill="%23d1fae5" opacity="0.7"/></svg>');
+        }
+        
+        body.mood-moderate {
+            background-color: var(--moderate-bg);
+            color: var(--moderate-text);
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="20" cy="20" r="1.5" fill="%23fef3c7" opacity="0.6"/><circle cx="50" cy="30" r="1" fill="%23fef3c7" opacity="0.4"/><circle cx="80" cy="40" r="1.2" fill="%23fef3c7" opacity="0.5"/><circle cx="30" cy="70" r="0.8" fill="%23fef3c7" opacity="0.3"/><circle cx="70" cy="80" r="1.3" fill="%23fef3c7" opacity="0.7"/></svg>');
+        }
+        
+        body.mood-unhealthy {
+            background-color: var(--unhealthy-bg);
+            color: var(--unhealthy-text);
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="20" cy="20" r="1.5" fill="%23ffedd5" opacity="0.6"/><circle cx="50" cy="30" r="1" fill="%23ffedd5" opacity="0.4"/><circle cx="80" cy="40" r="1.2" fill="%23ffedd5" opacity="0.5"/><circle cx="30" cy="70" r="0.8" fill="%23ffedd5" opacity="0.3"/><circle cx="70" cy="80" r="1.3" fill="%23ffedd5" opacity="0.7"/></svg>');
+        }
+        
+        body.mood-hazardous {
+            background-color: var(--hazardous-bg);
+            color: var(--hazardous-text);
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="20" cy="20" r="1.5" fill="%23fee2e2" opacity="0.6"/><circle cx="50" cy="30" r="1" fill="%23fee2e2" opacity="0.4"/><circle cx="80" cy="40" r="1.2" fill="%23fee2e2" opacity="0.5"/><circle cx="30" cy="70" r="0.8" fill="%23fee2e2" opacity="0.3"/><circle cx="70" cy="80" r="1.3" fill="%23fee2e2" opacity="0.7"/></svg>');
+        }
+        
+        .gas-card {
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 16px;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+        
+        .dark .gas-card {
+            background: rgba(30, 41, 59, 0.85);
+        }
+        
+        .good { background-color: #4CAF50 !important; color: white !important; }
+        .moderate { background-color: #FFEB3B !important; color: black !important; }
+        .unhealthy { background-color: #F44336 !important; color: white !important; }
+        .hazardous { background-color: #795548 !important; color: white !important; }
+        
+        .chart-container {
+            position: relative;
+            height: 280px;
+            width: 100%;
+        }
+        
+        /* Dark mode styles */
+        .dark {
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+        
+        /* Status sensor */
+        .sensor-status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .sensor-online { background-color: #10B981; }
+        .sensor-warning { background-color: #F59E0B; }
+        .sensor-error { background-color: #EF4444; }
+        
+        /* Lung animation */
+        .lungs-container {
+            position: relative;
+            height: 100px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        
+        .lung {
+            position: absolute;
+            top: 0;
+            width: 60px;
+            height: 100px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            opacity: 0.8;
+            transition: all 1s ease;
+        }
+        
+        .left-lung {
+            left: 25%;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path fill="currentColor" d="M40,10 Q50,40 40,70 Q30,50 40,10 Z"></path></svg>');
+        }
+        
+        .right-lung {
+            right: 25%;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path fill="currentColor" d="M60,10 Q50,40 60,70 Q70,50 60,10 Z"></path></svg>');
+        }
+        
+        /* Animation */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.8s ease forwards;
+        }
+        
+        .delay-1 { animation-delay: 0.2s; }
+        .delay-2 { animation-delay: 0.4s; }
+        .delay-3 { animation-delay: 0.6s; }
+        
+        /* Download card */
+        .download-card {
+            background: linear-gradient(135deg, #4ade80, #22d3ee);
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .download-card::before {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+            transform: rotate(30deg);
+            pointer-events: none;
+        }
+        
+        /* Recommendation cards */
+        .recommendation-card {
+            transition: all 0.3s ease;
+            transform-origin: center;
+        }
+        
+        .recommendation-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        /* Logo styles */
+        .logo-container {
+            display: flex;
+            align-items: center;
+        }
+        
+        .app-logo {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            margin-right: 12px;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+        }
+        
+        .app-icon {
+            width: 192px;
+            height: 192px;
+            object-fit: contain;
+            border-radius: 24px;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+        }
+        
+        /* Desain baru untuk kualitas udara */
+        .air-quality-card {
+            display: flex;
+            flex-direction: column;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .dark .air-quality-card {
+            background: rgba(30, 41, 59, 0.9);
+        }
+        
+        .pollution-card {
+            display: flex;
+            flex-direction: column;
+            background: rgba(249, 250, 251, 0.7);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+        }
+        
+        .dark .pollution-card {
+            background: rgba(30, 41, 59, 0.7);
+        }
+        
+        .pollution-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .pollution-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 12px;
+        }
+        
+        .pollution-content {
+            flex: 1;
+        }
+        
+        .pollution-value {
+            font-size: 28px;
+            font-weight: 300;
+            margin-bottom: 8px;
+        }
+        
+        .progress-container {
+            width: 100%;
+            height: 8px;
+            background-color: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .dark .progress-container {
+            background-color: #374151;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            border-radius: 4px;
+        }
+        
+        .progress-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+        
+        .dark .progress-labels {
+            color: #9ca3af;
+        }
+        
+        .health-impact {
+            font-size: 13px;
+            margin-top: 8px;
+        }
+        
+        /* Tombol download yang bisa diklik */
+        .download-button {
+            position: relative;
+            z-index: 10;
+        }
+        
+        /* Status box */
+        .status-box {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .dark .status-box {
+            background: rgba(30, 41, 59, 0.9);
+            border-left: 4px solid #4CAF50;
+        }
+        
+        /* Data highlights */
+        .data-highlights {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .highlight-card {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .dark .highlight-card {
+            background: rgba(30, 41, 59, 0.9);
+        }
+        
+        .highlight-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 8px 0;
+        }
+        
+        /* Logo UdaraKu */
+        .udaraku-logo {
+            background: linear-gradient(135deg, #3b82f6, #22d3ee);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            margin-right: 12px;
+        }
+        
+        .udaraku-logo i {
+            font-size: 24px;
+            color: white;
+        }
+        
+        /* Refresh indicator */
+        .refresh-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+        }
+        
+        .refresh-indicator .dot {
+            width: 8px;
+            height: 8px;
+            background-color: #4ade80;
+            border-radius: 50%;
+            margin-right: 5px;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.5; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+            100% { opacity: 0.5; transform: scale(0.8); }
+        }
+        
+        /* Animasi Splash Screen */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #4ade80, #22d3ee);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            transition: opacity 1s ease, transform 1.2s ease;
+            overflow: hidden;
+        }
+        
+        body.dark #splash-screen {
+            background: linear-gradient(135deg, #166534, #0e7490);
+        }
+        
+        .splash-hidden {
+            opacity: 0;
+            transform: translateY(-100%);
+            pointer-events: none;
+        }
+        
+        .splash-content {
+            text-align: center;
+            padding: 20px;
+            max-width: 600px;
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeInUp 1s ease forwards 0.3s;
+        }
+        
+        .splash-greeting {
+            font-size: 2.5rem;
+            font-weight: 300;
+            color: white;
+            margin-bottom: 1.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .splash-title {
+            font-size: 4rem;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 1rem;
+            text-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            letter-spacing: -0.5px;
+        }
+        
+        .splash-subtitle {
+            font-size: 1.5rem;
+            font-weight: 300;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 3rem;
+        }
+        
+        .splash-loader {
+            width: 80px;
+            height: 4px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .splash-loader::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0;
+            background: white;
+            animation: loaderProgress 2.5s ease-in-out forwards;
+        }
+        
+        /* Animasi */
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes loaderProgress {
+            to {
+                width: 100%;
+            }
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        /* Partikel animasi */
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.5);
+            animation: particleMove linear infinite;
+        }
+        
+        @keyframes particleMove {
+            to {
+                transform: translateY(-100vh);
+            }
+        }
+
+        /* Health Campaign Slider */
+        .campaign-slider {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            height: 200px;
+        }
+
+        .campaign-slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 20px;
+            color: white;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+
+        .campaign-slide.active {
+            opacity: 1;
+        }
+
+        .campaign-slide h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .campaign-slide p {
+            font-size: 0.9rem;
+        }
+
+        .campaign-dots {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .campaign-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: rgba(255,255,255,0.5);
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .campaign-dot.active {
+            background-color: white;
+        }
+
+        /* ISPU Info Box */
+        .ispu-info {
+            background: rgba(255,255,255,0.9);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .dark .ispu-info {
+            background: rgba(30,41,59,0.9);
+        }
+
+        .ispu-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.85rem;
+        }
+
+        .ispu-table th, .ispu-table td {
+            padding: 6px 8px;
+            border: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        .dark .ispu-table th, .dark .ispu-table td {
+            border-color: #374151;
+        }
+
+        .ispu-table th {
+            background-color: #f3f4f6;
+            font-weight: 600;
+        }
+
+        .dark .ispu-table th {
+            background-color: #1f2937;
+        }
+
+        .ispu-good { background-color: rgba(74, 222, 128, 0.2); }
+        .ispu-moderate { background-color: rgba(250, 204, 21, 0.2); }
+        .ispu-unhealthy { background-color: rgba(248, 113, 113, 0.2); }
+        .ispu-very-unhealthy { background-color: rgba(244, 63, 94, 0.2); }
+        .ispu-hazardous { background-color: rgba(120, 53, 15, 0.2); }
+
+        .dark .ispu-good { background-color: rgba(22, 163, 74, 0.3); }
+        .dark .ispu-moderate { background-color: rgba(180, 83, 9, 0.3); }
+        .dark .ispu-unhealthy { background-color: rgba(185, 28, 28, 0.3); }
+        .dark .ispu-very-unhealthy { background-color: rgba(190, 18, 60, 0.3); }
+        .dark .ispu-hazardous { background-color: rgba(68, 64, 60, 0.3); }
+        
+        /* Air Quality Summary Table */
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .dark .summary-table {
+            background: rgba(30, 41, 59, 0.9);
+        }
+        
+        .summary-table th, .summary-table td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .dark .summary-table th, .dark .summary-table td {
+            border-bottom-color: #374151;
+        }
+        
+        .summary-table th {
+            background-color: #f3f4f6;
+            font-weight: 600;
+        }
+        
+        .dark .summary-table th {
+            background-color: #1f2937;
+        }
+        
+        .summary-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .summary-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        .summary-good { color: #16a34a; }
+        .summary-moderate { color: #d97706; }
+        .summary-unhealthy { color: #dc2626; }
+        .summary-hazardous { color: #991b1b; }
+        
+        .summary-trend-up { color: #dc2626; }
+        .summary-trend-down { color: #16a34a; }
+        .summary-trend-neutral { color: #4b5563; }
+    </style>
+</head>
+<body class="py-6 px-4 mood-good">
+    <!-- Splash Screen -->
+    <div id="splash-screen">
+        <div class="splash-content">
+            <div id="splash-greeting" class="splash-greeting"></div>
+            <h1 class="splash-title">UdaraKu</h1>
+            <p class="splash-subtitle">Smart CO & NO2 Quality Monitoring</p>
+            <div class="splash-loader"></div>
+        </div>
+        
+        <!-- Partikel animasi -->
+        <div class="particle" style="width: 8px; height: 8px; top: 20%; left: 10%; animation-duration: 8s;"></div>
+        <div class="particle" style="width: 6px; height: 6px; top: 40%; left: 30%; animation-duration: 10s;"></div>
+        <div class="particle" style="width: 5px; height: 5px; top: 70%; left: 20%; animation-duration: 12s;"></div>
+        <div class="particle" style="width: 7px; height: 7px; top: 30%; left: 70%; animation-duration: 9s;"></div>
+        <div class="particle" style="width: 4px; height: 4px; top: 60%; left: 80%; animation-duration: 11s;"></div>
+    </div>
+
+    <!-- Refresh Indicator -->
+    <div class="refresh-indicator">
+        <div class="dot"></div>
+        <span>Memperbarui data setiap 15 detik</span>
+    </div>
+
+    <div class="container mx-auto max-w-6xl">
+        <!-- Header Section -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-8">
+            <div class="flex items-center mb-4 md:mb-0">
+                <!-- Logo UdaraKu dengan logoudaraku_fix -->
+                <div class="logo-container">
+                    <div class="udaraku-logo floating">
+                        <img src="logoudaraku_fix.png" alt="UdaraKu Logo" class="app-logo">
+                    </div>
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-800 dark:text-white">UdaraKu</h1>
+                        <p class="text-gray-600 dark:text-gray-300 text-sm">
+                            Smart CO & NO2 Quality Monitoring
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex flex-col items-end">
+                <div class="flex items-center mb-2">
+                    <button id="darkModeToggle" class="p-2 rounded-full bg-gray-200 dark:bg-gray-700 mr-3">
+                        <i class="fas fa-moon dark:hidden"></i>
+                        <i class="fas fa-sun hidden dark:block"></i>
+                    </button>
+                    <div>
+                        <div id="greeting" class="text-xl font-semibold text-gray-700 dark:text-gray-200"></div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400" id="currentDateTime"></div>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-600 dark:text-gray-300">
+                    <i class="fas fa-database mr-1"></i>
+                    <span>ThingSpeak Channel 2997257</span>
+                    <span class="ml-2" id="sensorStatus">🟢 Online</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Air Quality Summary Table -->
+        <table class="summary-table fade-in">
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Nilai Saat Ini</th>
+                    <th>Status</th>
+                    <th>ISPU</th>
+                    <th>Tren (vs Kemarin)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Karbon Monoksida (CO)</td>
+                    <td class="summary-value" id="summaryCo">-- µg/m³</td>
+                    <td id="summaryCoStatus">--</td>
+                    <td id="summaryCoIspu">--</td>
+                    <td id="summaryCoTrend">--</td>
+                </tr>
+                <tr>
+                    <td>Nitrogen Dioksida (NO2)</td>
+                    <td class="summary-value" id="summaryNo2">-- µg/m³</td>
+                    <td id="summaryNo2Status">--</td>
+                    <td id="summaryNo2Ispu">--</td>
+                    <td id="summaryNo2Trend">--</td>
+                </tr>
+                <tr>
+                    <td>Kualitas Udara Keseluruhan</td>
+                    <td class="summary-value" id="summaryOverall">--</td>
+                    <td id="summaryOverallStatus">--</td>
+                    <td id="summaryOverallIspu">--</td>
+                    <td id="summaryOverallTrend">--</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- ISPU Information -->
+        <div class="ispu-info fade-in">
+            <h3 class="font-bold dark:text-white mb-2">Indeks Standar Pencemar Udara (ISPU) - KLHK</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">Kategori kualitas udara berdasarkan standar Kementerian Lingkungan Hidup dan Kehutanan (KLHK)</p>
+            
+            <table class="ispu-table">
+                <thead>
+                    <tr>
+                        <th>Rentang ISPU</th>
+                        <th>Kategori</th>
+                        <th>CO (µg/m³)</th>
+                        <th>NO2 (µg/m³)</th>
+                        <th>Dampak Kesehatan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="ispu-good">
+                        <td>0-50</td>
+                        <td>Baik</td>
+                        <td>0-4000</td>
+                        <td>0-80</td>
+                        <td>Tidak berdampak pada kesehatan</td>
+                    </tr>
+                    <tr class="ispu-moderate">
+                        <td>51-100</td>
+                        <td>Sedang</td>
+                        <td>4001-8000</td>
+                        <td>81-200</td>
+                        <td>Dapat berdampak pada kelompok sensitif</td>
+                    </tr>
+                    <tr class="ispu-unhealthy">
+                        <td>101-200</td>
+                        <td>Tidak Sehat</td>
+                        <td>8001-15000</td>
+                        <td>201-1130</td>
+                        <td>Berdampak pada kesehatan manusia</td>
+                    </tr>
+                    <tr class="ispu-very-unhealthy">
+                        <td>201-300</td>
+                        <td>Sangat Tidak Sehat</td>
+                        <td>15001-30000</td>
+                        <td>1131-2260</td>
+                        <td>Meningkatkan risiko kesehatan serius</td>
+                    </tr>
+                    <tr class="ispu-hazardous">
+                        <td>301+</td>
+                        <td>Berbahaya</td>
+                        <td>30001-45000</td>
+                        <td>2261-3000</td>
+                        <td>Berbahaya bagi seluruh populasi</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Status Box -->
+        <div class="status-box fade-in">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="font-bold dark:text-white">Status Kualitas Udara Saat Ini</h3>
+                    <p class="text-gray-600 dark:text-gray-300 text-sm" id="airQualityStatus">Baik - Aman untuk aktivitas luar ruangan</p>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm dark:text-gray-300">Pembaruan Selanjutnya</div>
+                    <div class="text-xl font-bold" id="nextUpdate">00:15</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Health Campaign Slider -->
+        <div class="gas-card p-5 mb-6 fade-in">
+            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4">
+                <i class="fas fa-heart text-red-500 mr-2"></i> Kampanye Hidup Sehat
+            </h2>
+            
+            <div class="campaign-slider">
+                <div class="campaign-slide active" style="background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80')">
+                    <h3>Hindari Aktivitas Luar Saat Polusi Tinggi</h3>
+                    <p>Batasi waktu di luar ruangan ketika kualitas udara sedang buruk, terutama bagi kelompok sensitif</p>
+                </div>
+                <div class="campaign-slide" style="background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80')">
+                    <h3>Gunakan Masker N95</h3>
+                    <p>Masker N95 efektif menyaring partikel polusi udara hingga 95%</p>
+                </div>
+                <div class="campaign-slide" style="background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1517191434949-5e90cd67d2b6?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80')">
+                    <h3>Tanaman Penyaring Udara</h3>
+                    <p>Tanaman seperti Lidah Mertua dan Palem Bambu membantu menyaring polutan dalam ruangan</p>
+                </div>
+                <div class="campaign-slide" style="background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1518492104633-130d0cc84637?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80')">
+                    <h3>Hidrasi yang Cukup</h3>
+                    <p>Minum air putih yang cukup membantu tubuh mengeluarkan racun akibat polusi udara</p>
+                </div>
+                
+                <div class="campaign-dots">
+                    <div class="campaign-dot active" data-slide="0"></div>
+                    <div class="campaign-dot" data-slide="1"></div>
+                    <div class="campaign-dot" data-slide="2"></div>
+                    <div class="campaign-dot" data-slide="3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Highlights -->
+        <div class="data-highlights fade-in">
+            <div class="highlight-card">
+                <div class="flex items-center justify-center">
+                    <i class="fas fa-smog text-red-500 mr-2"></i>
+                    <span class="dark:text-gray-300">CO Saat Ini</span>
+                </div>
+                <div class="highlight-value" id="currentCo">-- µg/m³</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Karbon Monoksida</div>
+            </div>
+            
+            <div class="highlight-card">
+                <div class="flex items-center justify-center">
+                    <i class="fas fa-industry text-orange-500 mr-2"></i>
+                    <span class="dark:text-gray-300">NO2 Saat Ini</span>
+                </div>
+                <div class="highlight-value" id="currentNo2">-- µg/m³</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Nitrogen Dioksida</div>
+            </div>
+            
+            <div class="highlight-card">
+                <div class="flex items-center justify-center">
+                    <i class="fas fa-chart-line text-blue-500 mr-2"></i>
+                    <span class="dark:text-gray-300">Tren Hari Ini</span>
+                </div>
+                <div class="highlight-value" id="trendToday">--</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">vs Kemarin</div>
+            </div>
+            
+            <div class="highlight-card">
+                <div class="flex items-center justify-center">
+                    <i class="fas fa-clock text-purple-500 mr-2"></i>
+                    <span class="dark:text-gray-300">Puncak Polusi</span>
+                </div>
+                <div class="highlight-value" id="peakTime">--:--</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Waktu Tertinggi</div>
+            </div>
+        </div>
+
+        <!-- Current Air Quality Section -->
+        <div class="gas-card p-5 mb-6 fade-in delay-1">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800 dark:text-white">Kualitas Udara Saat Ini</h2>
+                <div class="flex items-center">
+                    <span class="text-sm mr-2 dark:text-gray-300">Status Sensor:</span>
+                    <span id="sensorStatusIndicator" class="sensor-status sensor-online"></span>
+                    <span id="sensorStatusText" class="text-sm">Online</span>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- CO Card -->
+                <div class="pollution-card">
+                    <div class="pollution-header">
+                        <div class="pollution-icon bg-red-100 dark:bg-red-900">
+                            <i class="fas fa-smog text-red-600 dark:text-red-300"></i>
+                        </div>
+                        <h3 class="font-medium dark:text-gray-300">Karbon Monoksida (CO)</h3>
+                    </div>
+                    <div class="pollution-content">
+                        <div class="pollution-value" id="coValue">-- µg/m³</div>
+                        <div class="progress-container">
+                            <div id="coProgress" class="progress-bar bg-red-600" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-labels">
+                            <span>0</span>
+                            <span>45000</span>
+                        </div>
+                        <div class="health-impact" id="coHealthImpact">
+                            <span class="font-medium">Dampak Kesehatan: </span>
+                            <span>--</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- NO2 Card -->
+                <div class="pollution-card">
+                    <div class="pollution-header">
+                        <div class="pollution-icon bg-orange-100 dark:bg-orange-900">
+                            <i class="fas fa-industry text-orange-600 dark:text-orange-300"></i>
+                        </div>
+                        <h3 class="font-medium dark:text-gray-300">Nitrogen Dioksida (NO2)</h3>
+                    </div>
+                    <div class="pollution-content">
+                        <div class="pollution-value" id="no2Value">-- µg/m³</div>
+                        <div class="progress-container">
+                            <div id="no2Progress" class="progress-bar bg-orange-600" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-labels">
+                            <span>0</span>
+                            <span>3000</span>
+                        </div>
+                        <div class="health-impact" id="no2HealthImpact">
+                            <span class="font-medium">Dampak Kesehatan: </span>
+                            <span>--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Lung Animation -->
+            <div class="lungs-container">
+                <div class="lung left-lung" id="leftLung"></div>
+                <div class="lung right-lung" id="rightLung"></div>
+            </div>
+        </div>
+        
+        <!-- Historical Data Section -->
+        <div class="gas-card p-5 mb-6 fade-in delay-2">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800 dark:text-white">
+                    <i class="fas fa-chart-line text-blue-500 mr-2"></i> Data Historis
+                </h2>
+                <div class="text-sm dark:text-gray-300" id="comparisonText">--</div>
+            </div>
+            <div class="flex space-x-2 mb-4">
+                <button id="btn24Hours" class="px-3 py-1 bg-blue-600 text-white rounded-md text-sm">
+                    <i class="fas fa-clock mr-1"></i> 24 Jam
+                </button>
+                <button id="btn7Days" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-md text-sm">
+                    <i class="fas fa-calendar-week mr-1"></i> 7 Hari
+                </button>
+                <button id="btn30Days" class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-md text-sm">
+                    <i class="fas fa-calendar-alt mr-1"></i> 30 Hari
+                </button>
+            </div>
+            <div class="chart-container">
+                <canvas id="airQualityChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Mood and Activity Suggestions -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div class="gas-card p-5 fade-in delay-1">
+                <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4">Mood Hari Ini</h2>
+                <div id="moodDisplay" class="text-center p-4 rounded-lg mb-4">
+                    <div id="moodEmoji" class="text-5xl mb-2">😊</div>
+                    <h3 id="moodTitle" class="font-bold text-lg mb-1">Udara Bersih</h3>
+                    <p id="moodDescription" class="text-sm">Nikmati aktivitas luar ruangan!</p>
+                </div>
+                
+                <h3 class="font-medium mb-2 dark:text-gray-300">Saran Aktivitas:</h3>
+                <ul id="activitySuggestions" class="space-y-2">
+                    <li class="flex items-start">
+                        <i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i>
+                        <span class="dark:text-gray-300">Jalan-jalan di taman</span>
+                    </li>
+                    <li class="flex items-start">
+                        <i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i>
+                        <span class="dark:text-gray-300">Bersepeda keliling komplek</span>
+                    </li>
+                </ul>
+            </div>
+            
+            <!-- Daily Tips Section -->
+            <div class="gas-card p-5 fade-in delay-2">
+                <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4">
+                    <i class="fas fa-lightbulb text-yellow-500 mr-2"></i> Tips Harian
+                </h2>
+                <div id="dailyTips" class="space-y-4">
+                    <div class="flex items-start p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div class="bg-blue-100 p-2 rounded-full mr-3 dark:bg-blue-900">
+                            <i class="fas fa-mask text-blue-500 dark:text-blue-300"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold dark:text-white">Gunakan Masker Saat Keluar</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Jika kualitas udara sedang buruk, gunakan masker N95 untuk perlindungan optimal.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div class="bg-green-100 p-2 rounded-full mr-3 dark:bg-green-900">
+                            <i class="fas fa-tree text-green-500 dark:text-green-300"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold dark:text-white">Tanaman Penyaring Udara</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Tanaman seperti Lidah Mertua dan Palem Bambu efektif menyaring polutan udara dalam ruangan.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div class="bg-purple-100 p-2 rounded-full mr-3 dark:bg-purple-900">
+                            <i class="fas fa-fan text-purple-500 dark:text-purple-300"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold dark:text-white">Ventilasi Rumah di Pagi Hari</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Buka jendela di pagi hari ketika polusi udara biasanya lebih rendah.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Health Recommendations Section -->
+        <div class="gas-card p-5 mb-6 fade-in delay-3">
+            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-6 text-center">
+                <i class="fas fa-heartbeat text-red-500 mr-2"></i> Rekomendasi Kesehatan Berdasarkan Level Polusi
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <!-- CO Recommendations -->
+                <div class="recommendation-card bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md">
+                    <div class="flex items-center mb-4">
+                        <div class="bg-red-100 p-3 rounded-full mr-3 dark:bg-red-900">
+                            <i class="fas fa-smog text-red-600 dark:text-red-300 text-xl"></i>
+                        </div>
+                        <h3 class="text-lg font-bold dark:text-white">Karbon Monoksida (CO)</h3>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="p-3 bg-green-50 dark:bg-gray-700 rounded-lg">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-medium dark:text-gray-300">0-4000 µg/m³</span>
+                                <span class="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs rounded-full">Baik</span>
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Tidak ada efek kesehatan yang signifikan</p>
+                        </div>
+                        
+                        <div class="p-3 bg-yellow-50 dark:bg-gray-700 rounded-lg">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-medium dark:text-gray-300">4001-8000 µg/m³</span>
+                                <span class="px-2 py-1 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-xs rounded-full">Sedang</span>
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Dapat menyebabkan sakit kepala ringan pada individu sensitif</p>
+                        </div>
+                        
+                        <div class="p-3 bg-red-50 dark:bg-gray-700 rounded-lg">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-medium dark:text-gray-300">&gt;8000 µg/m³</span>
+                                <span class="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs rounded-full">Tidak Sehat</span>
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Sakit kepala, pusing, mual pada paparan jangka panjang</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- NO2 Recommendations -->
+                <div class="recommendation-card bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md">
+                    <div class="flex items-center mb-4">
+                        <div class="bg-orange-100 p-3 rounded-full mr-3 dark:bg-orange-900">
+                            <i class="fas fa-industry text-orange-600 dark:text-orange-300 text-xl"></i>
+                        </div>
+                        <h3 class="text-lg font-bold dark:text-white">Nitrogen Dioksida (NO2)</h3>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="p-3 bg-green-50 dark:bg-gray-700 rounded-lg">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-medium dark:text-gray-300">0-80 µg/m³</span>
+                                <span class="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs rounded-full">Baik</span>
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Kondisi udara normal dan sehat</p>
+                        </div>
+                        
+                        <div class="p-3 bg-yellow-50 dark:bg-gray-700 rounded-lg">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-medium dark:text-gray-300">81-200 µg/m³</span>
+                                <span class="px-2 py-1 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-xs rounded-full">Sedang</span>
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Iritasi pada penderita asma dan kelompok sensitif</p>
+                        </div>
+                        
+                        <div class="p-3 bg-red-50 dark:bg-gray-700 rounded-lg">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-medium dark:text-gray-300">&gt;200 µg/m³</span>
+                                <span class="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs rounded-full">Tidak Sehat</span>
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">Risiko gangguan pernapasan serius</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Current Health Recommendations -->
+            <div id="currentHealthRecommendations" class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md">
+                <h3 class="text-lg font-bold dark:text-white mb-4 text-center">
+                    <i class="fas fa-user-md text-blue-500 mr-2"></i> Rekomendasi Kesehatan Saat Ini
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-blue-50 dark:bg-gray-700 p-4 rounded-lg">
+                        <div class="text-blue-500 text-2xl mb-2 text-center">
+                            <i class="fas fa-home"></i>
+                        </div>
+                        <h4 class="font-medium text-center dark:text-gray-300 mb-2">Lingkungan Dalam Ruangan</h4>
+                        <p class="text-sm text-center text-gray-600 dark:text-gray-300" id="indoorRec">Menunggu data udara...</p>
+                    </div>
+                    
+                    <div class="bg-green-50 dark:bg-gray-700 p-4 rounded-lg">
+                        <div class="text-green-500 text-2xl mb-2 text-center">
+                            <i class="fas fa-walking"></i>
+                        </div>
+                        <h4 class="font-medium text-center dark:text-gray-300 mb-2">Aktivitas Outdoor</h4>
+                        <p class="text-sm text-center text-gray-600 dark:text-gray-300" id="outdoorRec">Menunggu data udara...</p>
+                    </div>
+                    
+                    <div class="bg-yellow-50 dark:bg-gray-700 p-4 rounded-lg">
+                        <div class="text-yellow-500 text-2xl mb-2 text-center">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <h4 class="font-medium text-center dark:text-gray-300 mb-2">Perlindungan Kesehatan</h4>
+                        <p class="text-sm text-center text-gray-600 dark:text-gray-300" id="protectionRec">Menunggu data udara...</p>
+                    </div>
+                    
+                    <div class="bg-red-50 dark:bg-gray-700 p-4 rounded-lg">
+                        <div class="text-red-500 text-2xl mb-2 text-center">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <h4 class="font-medium text-center dark:text-gray-300 mb-2">Tindakan Darurat</h4>
+                        <p class="text-sm text-center text-gray-600 dark:text-gray-300" id="emergencyRec">Menunggu data udara...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Download App Section -->
+        <div class="download-card p-8 text-white mb-6 fade-in delay-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div>
+                    <h2 class="text-2xl font-bold mb-3">Download Aplikasi UdaraKu</h2>
+                    <p class="mb-4">Pantau kualitas udara di mana saja dan dapatkan notifikasi langsung ketika polusi meningkat</p>
+                    <ul class="space-y-2 mb-6">
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle mr-2"></i>
+                            <span>Pantau kualitas udara real-time</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle mr-2"></i>
+                            <span>Notifikasi polusi dan rekomendasi</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle mr-2"></i>
+                            <span>Simulasi dampak lingkungan</span>
+                        </li>
+                    </ul>
+                    <a href="https://drive.google.com/drive/folders/18HG_OgaE_r44KBELr0Nf1sMcOQAHCfr9?usp=sharing" target="_blank" class="download-button inline-block px-6 py-3 bg-white text-green-600 font-bold rounded-lg hover:bg-gray-100 transition-colors">
+                        <i class="fas fa-download mr-2"></i> Download Sekarang
+                    </a>
+                </div>
+                <div class="flex justify-center">
+                    <div class="bg-white p-4 rounded-xl shadow-xl">
+                        <!-- Menggunakan logo logoudaraku_fix -->
+                        <img src="logoudaraku_fix.png" alt="UdaraKu App" class="app-icon">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-8 text-center text-gray-600 dark:text-gray-300 text-sm">
+            <p>&copy; 2025 UdaraKu - Smart CO & NO2 Quality Monitoring</p>
+            <p class="mt-1">Data diperbarui setiap 15 detik dari ThingSpeak Channel 2997257</p>
+        </footer>
+    </div>
+
+    <script>
+        // Fungsi untuk splash screen
+        function showSplashScreen() {
+            const splashScreen = document.getElementById('splash-screen');
+            const greeting = document.getElementById('splash-greeting');
+            
+            // Set greeting based on time of day
+            const now = new Date();
+            const hour = now.getHours();
+            
+            if (hour < 11) greeting.textContent = "Selamat Pagi";
+            else if (hour < 15) greeting.textContent = "Selamat Siang";
+            else if (hour < 19) greeting.textContent = "Selamat Sore";
+            else greeting.textContent = "Selamat Malam";
+            
+            // Sembunyikan splash screen setelah 2.5 detik
+            setTimeout(() => {
+                splashScreen.classList.add('splash-hidden');
+                
+                // Setelah transisi selesai, hapus splash screen
+                setTimeout(() => {
+                    splashScreen.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                }, 1200);
+            }, 2500);
+        }
+        
+        // API Configuration
+        const THINGSPEAK_CHANNEL_ID = '2997257';
+        const THINGSPEAK_API_KEY = '9DDROI7XOTRNGSKU';
+        const THINGSPEAK_API_URL = `https://api.thingspeak.com/channels/${THINGSPEAK_CHANNEL_ID}/feeds.json?api_key=${THINGSPEAK_API_KEY}&results=8000`;
+        
+        // Global variables
+        let currentFeeds = [];
+        let airQualityChart;
+        let currentRange = '30Days';
+        let lastUpdateTime = null;
+        let updateInterval = null;
+        let peakPollutionTime = '';
+        let peakPollutionValue = 0;
+        let campaignInterval = null;
+        let currentSlide = 0;
+        
+        // Health recommendations
+        const healthRecommendations = {
+            good: {
+                indoor: "Buka jendela untuk sirkulasi udara alami",
+                outdoor: "Aman untuk semua aktivitas luar ruangan",
+                protection: "Tidak perlu perlindungan khusus",
+                emergency: "Tidak ada tindakan darurat diperlukan"
+            },
+            moderate: {
+                indoor: "Batasi bukaan jendela, gunakan air purifier",
+                outdoor: "Batasi aktivitas luar untuk kelompok sensitif",
+                protection: "Gunakan masker jika memiliki masalah pernapasan",
+                emergency: "Pantau gejala iritasi pernapasan"
+            },
+            unhealthy: {
+                indoor: "Tutup jendela, nyalakan air purifier",
+                outdoor: "Hindari aktivitas luar ruangan yang berat",
+                protection: "Gunakan masker N95 jika keluar rumah",
+                emergency: "Cari udara bersih jika mengalami sesak napas"
+            },
+            hazardous: {
+                indoor: "Tetap di dalam ruangan, gunakan air purifier",
+                outdoor: "Hindari semua aktivitas luar ruangan",
+                protection: "Gunakan masker N95 dengan filter",
+                emergency: "Segera cari bantuan medis jika gejala memburuk"
+            }
+        };
+        
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tampilkan splash screen
+            showSplashScreen();
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Set greeting and time
+            updateDateTime();
+            setInterval(updateDateTime, 60000);
+            
+            // Set countdown for next update
+            startUpdateCountdown();
+            
+            // Start health campaign slider
+            startCampaignSlider();
+            
+            // Fetch initial data
+            fetchThingSpeakData();
+        });
+        
+        // Set up all event listeners
+        function setupEventListeners() {
+            // Dark mode toggle
+            document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
+            
+            // Chart range buttons
+            document.getElementById('btn24Hours').addEventListener('click', () => updateChartRange('24Hours'));
+            document.getElementById('btn7Days').addEventListener('click', () => updateChartRange('7Days'));
+            document.getElementById('btn30Days').addEventListener('click', () => updateChartRange('30Days'));
+            
+            // Campaign slider dots
+            document.querySelectorAll('.campaign-dot').forEach(dot => {
+                dot.addEventListener('click', function() {
+                    const slideIndex = parseInt(this.getAttribute('data-slide'));
+                    showCampaignSlide(slideIndex);
+                });
+            });
+        }
+        
+        // Start health campaign slider
+        function startCampaignSlider() {
+            clearInterval(campaignInterval);
+            campaignInterval = setInterval(() => {
+                currentSlide = (currentSlide + 1) % 4;
+                showCampaignSlide(currentSlide);
+            }, 5000);
+        }
+        
+        // Show specific campaign slide
+        function showCampaignSlide(index) {
+            currentSlide = index;
+            
+            // Hide all slides
+            document.querySelectorAll('.campaign-slide').forEach(slide => {
+                slide.classList.remove('active');
+            });
+            
+            // Deactivate all dots
+            document.querySelectorAll('.campaign-dot').forEach(dot => {
+                dot.classList.remove('active');
+            });
+            
+            // Show selected slide
+            document.querySelectorAll('.campaign-slide')[index].classList.add('active');
+            document.querySelector(`.campaign-dot[data-slide="${index}"]`).classList.add('active');
+            
+            // Reset timer
+            clearInterval(campaignInterval);
+            campaignInterval = setInterval(() => {
+                currentSlide = (currentSlide + 1) % 4;
+                showCampaignSlide(currentSlide);
+            }, 5000);
+        }
+        
+        // Toggle dark mode
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            const icon = document.querySelector('#darkModeToggle i');
+            if (document.documentElement.classList.contains('dark')) {
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            } else {
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+            }
+        }
+        
+        // Start countdown for next update (changed to 15 seconds)
+        function startUpdateCountdown() {
+            let seconds = 15;
+            document.getElementById('nextUpdate').textContent = seconds.toString().padStart(2, '0');
+            
+            clearInterval(updateInterval);
+            updateInterval = setInterval(() => {
+                seconds--;
+                if (seconds < 0) {
+                    seconds = 15;
+                    fetchThingSpeakData();
+                }
+                document.getElementById('nextUpdate').textContent = seconds.toString().padStart(2, '0');
+            }, 1000);
+        }
+        
+        // Update date and time display
+        function updateDateTime() {
+            const now = new Date();
+            const hour = now.getHours();
+            
+            // Set greeting based on time of day
+            let greeting;
+            if (hour < 11) greeting = "Selamat Pagi";
+            else if (hour < 15) greeting = "Selamat Siang";
+            else if (hour < 19) greeting = "Selamat Sore";
+            else greeting = "Selamat Malam";
+            
+            document.getElementById('greeting').textContent = greeting;
+            
+            // Format date and time
+            const options = { 
+                weekday: 'long', 
+                day: 'numeric', 
+                month: 'long', 
+                year: 'numeric',
+                hour: '2-digit', 
+                minute: '2-digit'
+            };
+            document.getElementById('currentDateTime').textContent = now.toLocaleDateString('id-ID', options);
+        }
+        
+        // Fetch data from ThingSpeak
+        async function fetchThingSpeakData() {
+            try {
+                const response = await fetch(THINGSPEAK_API_URL);
+                const data = await response.json();
+                
+                if (data && data.feeds && data.feeds.length > 0) {
+                    currentFeeds = data.feeds;
+                    lastUpdateTime = new Date();
+                    processData(currentFeeds);
+                    
+                    // Update sensor status
+                    updateSensorStatus();
+                    
+                    // Restart countdown
+                    startUpdateCountdown();
+                } else {
+                    throw new Error('No data available from ThingSpeak');
+                }
+            } catch (error) {
+                console.error('Error fetching ThingSpeak data:', error);
+                updateSensorStatus('error');
+            }
+        }
+        
+        // Update sensor status
+        function updateSensorStatus(status) {
+            const indicator = document.getElementById('sensorStatusIndicator');
+            const statusText = document.getElementById('sensorStatusText');
+            const statusElement = document.getElementById('sensorStatus');
+            
+            if (status === 'error') {
+                indicator.className = 'sensor-status sensor-error';
+                statusText.textContent = 'Error';
+                statusElement.textContent = '🔴 Error';
+                statusElement.title = 'Sensor tidak mengirim data selama 24 jam';
+                return;
+            }
+            
+            if (!lastUpdateTime) {
+                indicator.className = 'sensor-status sensor-warning';
+                statusText.textContent = 'Tidak Update';
+                statusElement.textContent = '🟡 Tidak Update';
+                statusElement.title = 'Sensor tidak mengirim data selama 1 jam';
+                return;
+            }
+            
+            const now = new Date();
+            const diffMinutes = Math.floor((now - lastUpdateTime) / (1000 * 60));
+            
+            if (diffMinutes > 60 * 24) {
+                indicator.className = 'sensor-status sensor-error';
+                statusText.textContent = 'Error';
+                statusElement.textContent = '🔴 Error';
+                statusElement.title = 'Sensor tidak mengirim data selama 24 jam';
+            } else if (diffMinutes > 60) {
+                indicator.className = 'sensor-status sensor-warning';
+                statusText.textContent = 'Tidak Update';
+                statusElement.textContent = '🟡 Tidak Update';
+                statusElement.title = 'Sensor tidak mengirim data selama 1 jam';
+            } else {
+                indicator.className = 'sensor-status sensor-online';
+                statusText.textContent = 'Online';
+                statusElement.textContent = '🟢 Online';
+                statusElement.title = 'Sensor online dan mengirim data';
+            }
+        }
+        
+        // Process fetched data
+        function processData(feeds) {
+            // Update current values
+            updateCurrentValues(feeds);
+            
+            // Analyze peak pollution hours
+            analyzePeakPollution(feeds);
+            
+            // Compare with yesterday
+            compareWithYesterday(feeds);
+            
+            // Update charts with default range
+            updateChartRange(currentRange);
+            
+            // Update health recommendations
+            updateHealthRecommendations();
+        }
+        
+        // Update current values display
+        function updateCurrentValues(feeds) {
+            const latestData = feeds[feeds.length - 1];
+            // Get values directly in µg/m³ (no conversion needed)
+            const coValue = parseFloat(latestData.field2); // CO in µg/m³
+            const no2Value = parseFloat(latestData.field3); // NO2 in µg/m³
+            const ispuValue = parseFloat(latestData.field1); // ISPU Final
+            
+            // Update display
+            document.getElementById('coValue').textContent = coValue.toFixed(0) + ' µg/m³';
+            document.getElementById('no2Value').textContent = no2Value.toFixed(0) + ' µg/m³';
+            document.getElementById('currentCo').textContent = coValue.toFixed(0) + ' µg/m³';
+            document.getElementById('currentNo2').textContent = no2Value.toFixed(0) + ' µg/m³';
+            
+            // Update summary table
+            document.getElementById('summaryCo').textContent = coValue.toFixed(0) + ' µg/m³';
+            document.getElementById('summaryNo2').textContent = no2Value.toFixed(0) + ' µg/m³';
+            document.getElementById('summaryOverallIspu').textContent = ispuValue.toFixed(0);
+            
+            // Update progress bars
+            document.getElementById('coProgress').style.width = `${Math.min(coValue / 45000 * 100, 100)}%`;
+            document.getElementById('no2Progress').style.width = `${Math.min(no2Value / 3000 * 100, 100)}%`;
+            
+            // Determine air quality levels
+            const coLevel = getAirQualityLevel('co', coValue);
+            const no2Level = getAirQualityLevel('no2', no2Value);
+            const overallLevel = getOverallLevel(ispuValue);
+            
+            // Update summary status
+            updateSummaryStatus('Co', coLevel);
+            updateSummaryStatus('No2', no2Level);
+            updateSummaryStatus('Overall', overallLevel);
+            
+            // Update health impact
+            document.getElementById('coHealthImpact').innerHTML = `
+                <span class="font-medium">Dampak Kesehatan: </span>
+                <span>${getHealthImpact('co', coValue)}</span>
+            `;
+            
+            document.getElementById('no2HealthImpact').innerHTML = `
+                <span class="font-medium">Dampak Kesehatan: </span>
+                <span>${getHealthImpact('no2', no2Value)}</span>
+            `;
+            
+            // Update mood and UI based on air quality
+            updateMoodAndUI(overallLevel);
+            
+            // Update lung animation
+            updateLungAnimation(overallLevel);
+        }
+        
+        // Get air quality level for a specific parameter
+        function getAirQualityLevel(type, value) {
+            if (type === 'co') {
+                if (value <= 4000) return 'good';
+                if (value <= 8000) return 'moderate';
+                if (value <= 15000) return 'unhealthy';
+                return 'hazardous';
+            } else { // NO2
+                if (value <= 80) return 'good';
+                if (value <= 200) return 'moderate';
+                if (value <= 1130) return 'unhealthy';
+                return 'hazardous';
+            }
+        }
+        
+        // Get overall air quality level based on ISPU value
+        function getOverallLevel(ispuValue) {
+            if (ispuValue <= 50) return 'good';
+            if (ispuValue <= 100) return 'moderate';
+            if (ispuValue <= 200) return 'unhealthy';
+            return 'hazardous';
+        }
+        
+        // Update summary table status
+        function updateSummaryStatus(type, level) {
+            const statusElement = document.getElementById(`summary${type}Status`);
+            const ispuElement = document.getElementById(`summary${type}Ispu`);
+            
+            let statusText, statusClass;
+            
+            switch(level) {
+                case 'good':
+                    statusText = 'Baik';
+                    statusClass = 'summary-good';
+                    break;
+                case 'moderate':
+                    statusText = 'Sedang';
+                    statusClass = 'summary-moderate';
+                    break;
+                case 'unhealthy':
+                    statusText = 'Tidak Sehat';
+                    statusClass = 'summary-unhealthy';
+                    break;
+                case 'hazardous':
+                    statusText = 'Berbahaya';
+                    statusClass = 'summary-hazardous';
+                    break;
+                default:
+                    statusText = '--';
+                    statusClass = '';
+            }
+            
+            statusElement.textContent = statusText;
+            statusElement.className = statusClass;
+            
+            if (type === 'Overall') {
+                document.getElementById('summaryOverall').textContent = statusText;
+                document.getElementById('summaryOverall').className = `summary-value ${statusClass}`;
+            }
+        }
+        
+        // Get health impact description
+        function getHealthImpact(type, value) {
+            if (type === 'co') {
+                if (value <= 4000) return "Tidak ada efek kesehatan yang signifikan";
+                if (value <= 8000) return "Dapat menyebabkan sakit kepala ringan pada individu sensitif";
+                return "Sakit kepala, pusing, mual pada paparan jangka panjang";
+            } else { // NO2
+                if (value <= 80) return "Tidak ada efek kesehatan yang signifikan";
+                if (value <= 200) return "Iritasi ringan pada mata dan saluran pernapasan";
+                return "Meningkatkan risiko masalah pernapasan seperti asma";
+            }
+        }
+        
+        // Analyze peak pollution hours
+        function analyzePeakPollution(feeds) {
+            // Group data by hour
+            const hourlyData = {};
+            
+            feeds.forEach(feed => {
+                const date = new Date(feed.created_at);
+                const hour = date.getHours();
+                
+                if (!hourlyData[hour]) {
+                    hourlyData[hour] = {
+                        coSum: 0,
+                        no2Sum: 0,
+                        count: 0
+                    };
+                }
+                
+                hourlyData[hour].coSum += parseFloat(feed.field2); // CO in µg/m³
+                hourlyData[hour].no2Sum += parseFloat(feed.field3); // NO2 in µg/m³
+                hourlyData[hour].count++;
+            });
+            
+            // Calculate averages and find peak
+            let peakHour = 0;
+            let peakValue = 0;
+            
+            for (const hour in hourlyData) {
+                const avgCo = hourlyData[hour].coSum / hourlyData[hour].count;
+                const avgNo2 = hourlyData[hour].no2Sum / hourlyData[hour].count;
+                const avgTotal = (avgCo + avgNo2) / 2; // Average of both pollutants
+                
+                if (avgTotal > peakValue) {
+                    peakValue = avgTotal;
+                    peakHour = parseInt(hour);
+                }
+            }
+            
+            // Format peak time
+            const startHour = peakHour.toString().padStart(2, '0');
+            const endHour = (peakHour + 1) % 24;
+            const endHourStr = endHour.toString().padStart(2, '0');
+            
+            peakPollutionTime = `${startHour}:00-${endHourStr}:00`;
+            peakPollutionValue = peakValue;
+            
+            // Update peak time display
+            document.getElementById('peakTime').textContent = peakPollutionTime;
+        }
+        
+        // Compare today with yesterday (fixed logic)
+        function compareWithYesterday(feeds) {
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            // Filter today's and yesterday's feeds
+            const todayFeeds = feeds.filter(feed => {
+                const feedDate = new Date(feed.created_at);
+                return feedDate >= today;
+            });
+            
+            const yesterdayFeeds = feeds.filter(feed => {
+                const feedDate = new Date(feed.created_at);
+                return feedDate >= yesterday && feedDate < today;
+            });
+            
+            if (todayFeeds.length === 0 || yesterdayFeeds.length === 0) return;
+            
+            // Calculate averages (already in µg/m³)
+            const todayAvgCo = todayFeeds.reduce((sum, feed) => sum + parseFloat(feed.field2), 0) / todayFeeds.length;
+            const yesterdayAvgCo = yesterdayFeeds.reduce((sum, feed) => sum + parseFloat(feed.field2), 0) / yesterdayFeeds.length;
+            
+            const todayAvgNo2 = todayFeeds.reduce((sum, feed) => sum + parseFloat(feed.field3), 0) / todayFeeds.length;
+            const yesterdayAvgNo2 = yesterdayFeeds.reduce((sum, feed) => sum + parseFloat(feed.field3), 0) / yesterdayFeeds.length;
+            
+            const todayAvgIspu = todayFeeds.reduce((sum, feed) => sum + parseFloat(feed.field1), 0) / todayFeeds.length;
+            const yesterdayAvgIspu = yesterdayFeeds.reduce((sum, feed) => sum + parseFloat(feed.field1), 0) / yesterdayFeeds.length;
+            
+            // Calculate differences
+            const coDifference = todayAvgCo - yesterdayAvgCo;
+            const no2Difference = todayAvgNo2 - yesterdayAvgNo2;
+            const ispuDifference = todayAvgIspu - yesterdayAvgIspu;
+            
+            // Update trend indicators
+            updateTrendIndicator('Co', coDifference);
+            updateTrendIndicator('No2', no2Difference);
+            updateTrendIndicator('Overall', ispuDifference);
+            
+            // Update comparison text
+            let comparisonText = '';
+            let trendText = '';
+            
+            if (ispuDifference < -5) {
+                comparisonText = `Hari ini ${Math.abs(Math.round((ispuDifference / yesterdayAvgIspu) * 100))}% lebih bersih dibanding kemarin`;
+                trendText = 'Menurun';
+            } else if (ispuDifference > 5) {
+                comparisonText = `Hari ini ${Math.round((ispuDifference / yesterdayAvgIspu) * 100)}% lebih buruk dibanding kemarin`;
+                trendText = 'Meningkat';
+            } else {
+                comparisonText = "Kualitas udara hari ini mirip dengan kemarin";
+                trendText = 'Stabil';
+            }
+            
+            document.getElementById('comparisonText').textContent = comparisonText;
+            document.getElementById('trendToday').textContent = trendText;
+        }
+        
+        // Update trend indicator in summary table
+        function updateTrendIndicator(type, difference) {
+            const trendElement = document.getElementById(`summary${type}Trend`);
+            
+            if (difference < -5) {
+                trendElement.textContent = 'Menurun';
+                trendElement.className = 'summary-trend-down';
+            } else if (difference > 5) {
+                trendElement.textContent = 'Meningkat';
+                trendElement.className = 'summary-trend-up';
+            } else {
+                trendElement.textContent = 'Stabil';
+                trendElement.className = 'summary-trend-neutral';
+            }
+        }
+        
+        // Update health recommendations
+        function updateHealthRecommendations() {
+            const latestData = currentFeeds[currentFeeds.length - 1];
+            const ispuValue = parseFloat(latestData.field1); // ISPU Final
+            
+            // Determine overall air quality level based on ISPU value
+            let overallLevel;
+            if (ispuValue <= 50) {
+                overallLevel = 'good';
+            } else if (ispuValue <= 100) {
+                overallLevel = 'moderate';
+            } else if (ispuValue <= 200) {
+                overallLevel = 'unhealthy';
+            } else {
+                overallLevel = 'hazardous';
+            }
+            
+            // Update recommendations
+            document.getElementById('indoorRec').textContent = healthRecommendations[overallLevel].indoor;
+            document.getElementById('outdoorRec').textContent = healthRecommendations[overallLevel].outdoor;
+            document.getElementById('protectionRec').textContent = healthRecommendations[overallLevel].protection;
+            document.getElementById('emergencyRec').textContent = healthRecommendations[overallLevel].emergency;
+        }
+        
+        // Update mood and UI based on air quality
+        function updateMoodAndUI(level) {
+            const mood = {
+                good: {
+                    emoji: "😊",
+                    title: "Udara Bersih",
+                    description: "Kualitas udara sangat baik untuk aktivitas outdoor!",
+                    color: "bg-green-100",
+                    textColor: "text-green-800",
+                    bodyClass: "mood-good"
+                },
+                moderate: {
+                    emoji: "😐",
+                    title: "Udara Sedang",
+                    description: "Kelompok sensitif mungkin perlu berhati-hati.",
+                    color: "bg-yellow-100",
+                    textColor: "text-yellow-800",
+                    bodyClass: "mood-moderate"
+                },
+                unhealthy: {
+                    emoji: "😷",
+                    title: "Udara Tidak Sehat",
+                    description: "Batasi aktivitas luar ruangan.",
+                    color: "bg-orange-100",
+                    textColor: "text-orange-800",
+                    bodyClass: "mood-unhealthy"
+                },
+                hazardous: {
+                    emoji: "🤢",
+                    title: "Udara Berbahaya",
+                    description: "Hindari paparan udara luar.",
+                    color: "bg-red-100",
+                    textColor: "text-red-800",
+                    bodyClass: "mood-hazardous"
+                }
+            }[level];
+            
+            const moodDisplay = document.getElementById('moodDisplay');
+            
+            // Update mood display
+            document.getElementById('moodEmoji').textContent = mood.emoji;
+            document.getElementById('moodTitle').textContent = mood.title;
+            document.getElementById('moodDescription').textContent = mood.description;
+            
+            // Update mood colors
+            moodDisplay.className = `text-center p-4 rounded-lg mb-4 ${mood.color} ${mood.textColor}`;
+            
+            // Update activity suggestions
+            const suggestions = {
+                good: [
+                    "Jalan-jalan di taman",
+                    "Bersepeda keliling komplek",
+                    "Olahraga outdoor",
+                    "Buka jendela untuk ventilasi alami",
+                    "Jemur pakaian di luar"
+                ],
+                moderate: [
+                    "Batasi waktu olahraga outdoor",
+                    "Gunakan masker jika sensitif",
+                    "Pilih waktu pagi untuk aktivitas luar",
+                    "Tanaman indoor untuk saring udara",
+                    "Hindari area lalu lintas padat"
+                ],
+                unhealthy: [
+                    "Hindari olahraga luar ruangan",
+                    "Gunakan air purifier di rumah",
+                    "Tutup jendela saat polusi tinggi",
+                    "Minum banyak air putih",
+                    "Gunakan masker N95 jika keluar"
+                ],
+                hazardous: [
+                    "Tetap di dalam ruangan",
+                    "Gunakan air purifier dengan HEPA",
+                    "Hindari aktivitas fisik berat",
+                    "Pantau gejala kesehatan",
+                    "Tunda perjalanan tidak penting"
+                ]
+            }[level];
+            
+            const suggestionsContainer = document.getElementById('activitySuggestions');
+            suggestionsContainer.innerHTML = '';
+            
+            suggestions.forEach(suggestion => {
+                const li = document.createElement('li');
+                li.className = 'flex items-start';
+                li.innerHTML = `
+                    <i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i>
+                    <span class="dark:text-gray-300">${suggestion}</span>
+                `;
+                suggestionsContainer.appendChild(li);
+            });
+            
+            // Update body class for mood theme
+            document.body.className = `py-6 px-4 ${mood.bodyClass}`;
+            if (document.documentElement.classList.contains('dark')) {
+                document.body.classList.add('dark');
+            }
+            
+            // Update air quality status
+            document.getElementById('airQualityStatus').textContent = `${mood.title} - ${mood.description}`;
+        }
+        
+        // Update lung animation based on air quality
+        function updateLungAnimation(level) {
+            const leftLung = document.getElementById('leftLung');
+            const rightLung = document.getElementById('rightLung');
+            
+            // Reset animation
+            leftLung.style.animation = 'none';
+            rightLung.style.animation = 'none';
+            leftLung.style.opacity = '0.8';
+            rightLung.style.opacity = '0.8';
+            
+            // Set color based on air quality
+            let color;
+            if (level === 'good') color = '#4CAF50';
+            else if (level === 'moderate') color = '#FFEB3B';
+            else if (level === 'unhealthy') color = '#F44336';
+            else color = '#795548';
+            
+            leftLung.style.color = color;
+            rightLung.style.color = color;
+            
+            // Set animation based on air quality
+            if (level === 'good') {
+                leftLung.style.animation = 'breath 3s infinite ease-in-out';
+                rightLung.style.animation = 'breath 3s infinite ease-in-out 0.5s';
+            } else if (level === 'moderate') {
+                leftLung.style.animation = 'breath 4s infinite ease-in-out';
+                rightLung.style.animation = 'breath 4s infinite ease-in-out 0.5s';
+            } else if (level === 'unhealthy') {
+                leftLung.style.animation = 'breath 5s infinite ease-in-out';
+                rightLung.style.animation = 'breath 5s infinite ease-in-out 0.5s';
+                leftLung.style.opacity = '0.6';
+                rightLung.style.opacity = '0.6';
+            } else {
+                leftLung.style.animation = 'breath 6s infinite ease-in-out';
+                rightLung.style.animation = 'breath 6s infinite ease-in-out 0.5s';
+                leftLung.style.opacity = '0.4';
+                rightLung.style.opacity = '0.4';
+            }
+            
+            // Add CSS for animation if not already present
+            if (!document.getElementById('lungAnimationStyle')) {
+                const style = document.createElement('style');
+                style.id = 'lungAnimationStyle';
+                style.textContent = `
+                    @keyframes breath {
+                        0% { transform: scale(1); }
+                        50% { transform: scale(1.1); }
+                        100% { transform: scale(1); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+        
+        // Update chart range
+        function updateChartRange(range) {
+            currentRange = range;
+            
+            // Update active button
+            document.getElementById('btn24Hours').classList.remove('bg-blue-600', 'text-white');
+            document.getElementById('btn7Days').classList.remove('bg-blue-600', 'text-white');
+            document.getElementById('btn30Days').classList.remove('bg-blue-600', 'text-white');
+            document.getElementById(`btn${range}`).classList.add('bg-blue-600', 'text-white');
+            
+            if (!currentFeeds.length) return;
+            
+            // Prepare data for the selected range
+            const chartData = prepareChartData(currentFeeds, range);
+            
+            // Render or update chart
+            renderChart(chartData);
+        }
+        
+        // Prepare chart data
+        function prepareChartData(feeds, range) {
+            const now = new Date();
+            let cutoffDate;
+            let labels = [];
+            let coData = [];
+            let no2Data = [];
+            let ispuData = [];
+            
+            // Calculate cutoff date based on range
+            if (range === '24Hours') {
+                cutoffDate = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+            } else if (range === '7Days') {
+                cutoffDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+            } else { // 30Days
+                cutoffDate = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+            }
+            
+            // Filter feeds for selected range
+            const filteredFeeds = feeds.filter(feed => {
+                const feedDate = new Date(feed.created_at);
+                return feedDate >= cutoffDate;
+            });
+            
+            // Format labels based on range
+            if (range === '24Hours') {
+                // For 24 hours, show hours and minutes
+                labels = filteredFeeds.map(feed => {
+                    const date = new Date(feed.created_at);
+                    return date.toLocaleTimeString('id-ID', { 
+                        hour: '2-digit', 
+                        minute: '2-digit'
+                    });
+                });
+            } else if (range === '7Days') {
+                // For 7 days, show day and hour
+                labels = filteredFeeds.map(feed => {
+                    const date = new Date(feed.created_at);
+                    return date.toLocaleDateString('id-ID', { 
+                        day: 'numeric',
+                        month: 'short',
+                        hour: '2-digit'
+                    });
+                });
+            } else { // 30Days
+                // Group by day for 30-day view to reduce data points
+                const dailyAverages = {};
+                
+                filteredFeeds.forEach(feed => {
+                    const date = new Date(feed.created_at);
+                    const dateStr = date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                    
+                    if (!dailyAverages[dateStr]) {
+                        dailyAverages[dateStr] = {
+                            coSum: 0,
+                            no2Sum: 0,
+                            ispuSum: 0,
+                            count: 0
+                        };
+                    }
+                    
+                    dailyAverages[dateStr].coSum += parseFloat(feed.field2); // CO in µg/m³
+                    dailyAverages[dateStr].no2Sum += parseFloat(feed.field3); // NO2 in µg/m³
+                    dailyAverages[dateStr].ispuSum += parseFloat(feed.field1); // ISPU Final
+                    dailyAverages[dateStr].count++;
+                });
+                
+                labels = Object.keys(dailyAverages);
+                coData = Object.values(dailyAverages).map(day => day.coSum / day.count);
+                no2Data = Object.values(dailyAverages).map(day => day.no2Sum / day.count);
+                ispuData = Object.values(dailyAverages).map(day => day.ispuSum / day.count);
+                
+                return { labels, coData, no2Data, ispuData };
+            }
+            
+            coData = filteredFeeds.map(feed => parseFloat(feed.field2)); // CO in µg/m³
+            no2Data = filteredFeeds.map(feed => parseFloat(feed.field3)); // NO2 in µg/m³
+            ispuData = filteredFeeds.map(feed => parseFloat(feed.field1)); // ISPU Final
+            
+            return { labels, coData, no2Data, ispuData };
+        }
+        
+        // Render or update chart
+        function renderChart(chartData) {
+            const ctx = document.getElementById('airQualityChart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (airQualityChart) {
+                airQualityChart.destroy();
+            }
+            
+            airQualityChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [
+                        {
+                            label: 'CO (µg/m³)',
+                            data: chartData.coData,
+                            borderColor: '#F44336',
+                            backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.1,
+                            fill: true
+                        },
+                        {
+                            label: 'NO2 (µg/m³)',
+                            data: chartData.no2Data,
+                            borderColor: '#FF9800',
+                            backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.1,
+                            fill: true
+                        },
+                        {
+                            label: 'ISPU Final',
+                            data: chartData.ispuData,
+                            borderColor: '#3F51B5',
+                            backgroundColor: 'rgba(63, 81, 181, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.1,
+                            fill: true,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.datasetIndex === 2) { // ISPU
+                                        label += context.raw.toFixed(0);
+                                    } else {
+                                        label += context.raw.toFixed(0) + ' µg/m³';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Konsentrasi (µg/m³)'
+                            }
+                        },
+                        y1: {
+                            position: 'right',
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'ISPU'
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: currentRange === '24Hours' ? 45 : 0,
+                                minRotation: currentRange === '24Hours' ? 45 : 0
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
